@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Model Comparison Analyzer</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --surface: #1a1d24;
+        --border: #2a2f3a;
+        --text: #e6e8eb;
+        --muted: #9aa3b2;
+        --accent: #4f8cff;
+        --accent-hover: #6ba1ff;
+        --error: #ff5c5c;
+        --warning: #f0a020;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+
+      .container {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 900px;
+        width: 100%;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        margin-bottom: 10px;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        margin-bottom: 16px;
+        line-height: 1.5;
+        font-size: 0.92rem;
+      }
+
+      .badge {
+        display: inline-block;
+        background: rgba(79, 140, 255, 0.12);
+        color: var(--accent);
+        border: 1px solid rgba(79, 140, 255, 0.35);
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+      }
+
+      button,
+      .btn {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 14px 32px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background 0.15s ease,
+          transform 0.1s ease;
+        width: 100%;
+        text-decoration: none;
+        display: inline-block;
+        text-align: center;
+      }
+
+      button:hover:not(:disabled),
+      .btn:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+      button:disabled,
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .loader {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 14px;
+        border: 4px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .error-msg {
+        background: rgba(255, 92, 92, 0.1);
+        border: 1px solid rgba(255, 92, 92, 0.4);
+        color: var(--error);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 0.9rem;
+        text-align: center;
+      }
+
+      .warning-msg {
+        color: var(--warning);
+        font-size: 0.85rem;
+        margin-top: 8px;
+        text-align: center;
+      }
+
+      /* ── Model table ──────────────────────────────────────── */
+      .table-wrapper {
+        margin: 20px 0;
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+      }
+
+      thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      th {
+        background: var(--border);
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 10px 12px;
+        text-align: left;
+      }
+
+      td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      tr.selected {
+        background: rgba(79, 140, 255, 0.08);
+      }
+
+      td.check {
+        width: 40px;
+        text-align: center;
+      }
+
+      td.check input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      td.url a {
+        color: var(--accent);
+        font-size: 0.82rem;
+        text-decoration: none;
+      }
+
+      td.url a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Summary bar ──────────────────────────────────────── */
+      .summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 16px 0;
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+
+      .summary strong {
+        color: var(--text);
+      }
+
+      /* Spinner inline */
+      .spinner {
+        text-align: center;
+        padding: 24px 0;
+      }
+      .spinner p {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <div class="header">
+        <h1>🤖 AI Model Comparison Analyzer</h1>
+        <p class="subtitle">
+          Obtené los modelos desde OpenCode, elegí dos para comparar, y generá
+          un análisis detallado en español con IA.
+        </p>
+        <div class="badge">
+          Proveedor activo: <%= provider %> — <%= model %>
+        </div>
+      </div>
+
+      <!-- Step 1: Load models -->
+      <div id="stepLoad" style="text-align: center">
+        <button type="button" id="loadBtn">📡 Cargar Modelos</button>
+      </div>
+
+      <!-- Spinner for model loading -->
+      <div id="spinnerLoad" class="spinner hidden">
+        <div class="loader"></div>
+        <p>
+          Obteniendo modelos desde OpenCode y validando contra
+          ArtificialAnalysis...
+        </p>
+      </div>
+
+      <!-- Error display -->
+      <div id="errorMsg" class="error-msg hidden"></div>
+
+      <!-- Step 2: Table + selection form (hidden initially) -->
+      <div id="stepSelect" class="hidden">
+        <form method="POST" action="/analyze" id="analysisForm">
+          <input type="hidden" name="model1" id="model1Input" />
+          <input type="hidden" name="model2" id="model2Input" />
+          <div id="allValidIdsContainer"></div>
+
+          <div class="summary">
+            <span id="summaryText">Cargando...</span>
+            <span id="selectionHint" class="warning-msg"
+              >Seleccioná exactamente 2 modelos.</span
+            >
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>#</th>
+                  <th>Modelo</th>
+                  <th>URL Individual</th>
+                </tr>
+              </thead>
+              <tbody id="modelTableBody"></tbody>
+            </table>
+          </div>
+
+          <button type="submit" id="analyzeBtn" disabled>
+            🚀 Analizar Modelos Seleccionados
+          </button>
+        </form>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        let allValidIds = [];
+        let modelData = [];
+
+        const loadBtn = document.getElementById("loadBtn");
+        const spinner = document.getElementById("spinnerLoad");
+        const errorMsg = document.getElementById("errorMsg");
+        const stepLoad = document.getElementById("stepLoad");
+        const stepSelect = document.getElementById("stepSelect");
+        const tbody = document.getElementById("modelTableBody");
+        const summary = document.getElementById("summaryText");
+        const hint = document.getElementById("selectionHint");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const form = document.getElementById("analysisForm");
+        const m1Input = document.getElementById("model1Input");
+        const m2Input = document.getElementById("model2Input");
+        const allValidContainer = document.getElementById(
+          "allValidIdsContainer",
+        );
+
+        /** Updates the hidden inputs and the Analyze button state. */
+        function updateSelection() {
+          const checked = Array.from(
+            tbody.querySelectorAll('input[type="checkbox"]:checked'),
+          );
+
+          if (checked.length === 2) {
+            m1Input.value = checked[0].value;
+            m2Input.value = checked[1].value;
+            analyzeBtn.disabled = false;
+            hint.classList.add("hidden");
+          } else {
+            m1Input.value = "";
+            m2Input.value = "";
+            analyzeBtn.disabled = true;
+            if (checked.length > 2) {
+              hint.textContent =
+                "Solo podés seleccionar 2 modelos. Desmarcá los demás.";
+              hint.classList.remove("hidden");
+            } else {
+              hint.textContent = "Seleccioná exactamente 2 modelos.";
+              hint.classList.remove("hidden");
+            }
+          }
+        }
+
+        // ── Load models ─────────────────────────────────────
+        loadBtn.addEventListener("click", async () => {
+          loadBtn.disabled = true;
+          stepLoad.classList.add("hidden");
+          spinner.classList.remove("hidden");
+          errorMsg.classList.add("hidden");
+
+          try {
+            const res = await fetch("/api/models");
+            if (!res.ok) {
+              throw new Error(`Error del servidor (${res.status}).`);
+            }
+
+            const data = await res.json();
+
+            // Filter valid results
+            modelData = (data.allResults || [])
+              .filter((r) => r.status === "fulfilled" && r.value?.isValid)
+              .map((r) => r.value);
+
+            allValidIds = modelData.map((m) => m.normalizedId);
+
+            if (modelData.length < 2) {
+              throw new Error(
+                `Se necesitan al menos 2 modelos válidos. Encontrados: ${modelData.length}`,
+              );
+            }
+
+            // Build rows
+            let html = "";
+            modelData.forEach((m, i) => {
+              html +=
+                "<tr>" +
+                '<td class="check"><input type="checkbox" name="selectedModel" value="' +
+                m.normalizedId +
+                '" data-row="' +
+                i +
+                '" /></td>' +
+                "<td>" +
+                (i + 1) +
+                "</td>" +
+                "<td><strong>" +
+                m.originalId +
+                "</strong></td>" +
+                '<td class="url"><a href="' +
+                m.checkUrl +
+                '" target="_blank" rel="noopener">' +
+                m.checkUrl +
+                "</a></td>" +
+                "</tr>";
+            });
+            tbody.innerHTML = html;
+            summary.innerHTML =
+              "<strong>" +
+              modelData.length +
+              "</strong> modelos válidos encontrados.";
+
+            // Build hidden inputs for allValidIds (for urlencoded form submission)
+            allValidContainer.innerHTML = "";
+            allValidIds.forEach((id) => {
+              const inp = document.createElement("input");
+              inp.type = "hidden";
+              inp.name = "allValidIds";
+              inp.value = id;
+              allValidContainer.appendChild(inp);
+            });
+
+            // Attach checkbox listeners
+            tbody.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+              cb.addEventListener("change", function () {
+                const row = tbody.querySelector(
+                  "tr:nth-child(" + (parseInt(cb.dataset.row) + 1) + ")",
+                );
+                if (cb.checked) {
+                  row.classList.add("selected");
+                } else {
+                  row.classList.remove("selected");
+                }
+                updateSelection();
+              });
+            });
+
+            spinner.classList.add("hidden");
+            stepSelect.classList.remove("hidden");
+          } catch (err) {
+            spinner.classList.add("hidden");
+            stepLoad.classList.remove("hidden");
+            loadBtn.disabled = false;
+            errorMsg.textContent = "❌ " + err.message;
+            errorMsg.classList.remove("hidden");
+          }
+        });
+
+        // Disable form button during submission
+        form.addEventListener("submit", () => {
+          analyzeBtn.disabled = true;
+          analyzeBtn.textContent = "⏳ Analizando...";
+        });
+      })();
+    </script>
+  </body>
+</html>

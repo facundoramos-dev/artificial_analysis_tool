@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resultado — AI Model Comparison Analyzer</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #1a1d24;
+      --border: #2a2f3a;
+      --text: #e6e8eb;
+      --muted: #9aa3b2;
+      --accent: #4f8cff;
+      --error: #ff5c5c;
+      --code-bg: #12151b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 32px 16px;
+    }
+
+    .container { max-width: 1000px; margin: 0 auto; }
+
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    .subtitle { color: var(--muted); margin-bottom: 24px; }
+
+    a { color: var(--accent); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:last-child td { border-bottom: none; }
+
+    .error {
+      background: rgba(255, 92, 92, 0.1);
+      border: 1px solid rgba(255, 92, 92, 0.4);
+      color: var(--error);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(79, 140, 255, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(79, 140, 255, 0.35);
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      margin: 0 6px 6px 0;
+    }
+
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      padding: 10px 22px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: #6ba1ff; }
+
+    .markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 {
+      margin: 22px 0 10px;
+      line-height: 1.3;
+    }
+    .markdown h1 { font-size: 1.4rem; }
+    .markdown h2 { font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .markdown h3 { font-size: 1.05rem; }
+    .markdown p { margin: 10px 0; }
+    .markdown ul, .markdown ol { margin: 10px 0 10px 24px; }
+    .markdown li { margin: 4px 0; }
+    .markdown table { margin: 14px 0; }
+    .markdown pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 14px 0;
+    }
+    .markdown code {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-size: 0.85em;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+    }
+    .markdown pre code { background: none; border: none; padding: 0; }
+    .markdown hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+    .actions { margin-top: 28px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <%
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Renderiza inline: negritas, itálicas, código y enlaces
+    function renderInline(text) {
+      let t = escapeHtml(text);
+      t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+      t = t.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      return t;
+    }
+
+    // Conversión simple de Markdown a HTML (encabezados, listas, tablas, código)
+    function renderMarkdown(md) {
+      if (!md) return "<p>No hay análisis disponible.</p>";
+      const lines = md.replace(/\r\n/g, "\n").split("\n");
+      let html = "";
+      let inCode = false;
+      let codeLang = "";
+      let codeLines = [];
+      let inList = false;
+      let listType = "ul";
+      let tableLines = [];
+
+      const flushList = () => {
+        if (inList) {
+          html += listType === "ol" ? "</ol>" : "</ul>";
+          inList = false;
+        }
+      };
+
+      const flushTable = () => {
+        if (tableLines.length === 0) return;
+        const rows = tableLines.map((line) =>
+          line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim())
+        );
+        if (rows.length > 1 && /^:?-{2,}:?$/.test(rows[1][0] || "")) {
+          const header = rows[0];
+          const body = rows.slice(2);
+          html += "<table><thead><tr>" + header.map((c) => "<th>" + renderInline(c) + "</th>").join("") + "</tr></thead><tbody>";
+          for (const row of body) {
+            html += "<tr>" + row.map((c) => "<td>" + renderInline(c) + "</td>").join("") + "</tr>";
+          }
+          html += "</tbody></table>";
+        } else {
+          for (const row of rows) {
+            html += "<table><tr>" + row.map((c) => "<td>" + renderInline(c) + "</td>").join("") + "</tr></table>";
+          }
+        }
+        tableLines = [];
+      };
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+
+        // Bloques de código con fences
+        if (/^```/.test(trimmed)) {
+          if (!inCode) {
+            flushList(); flushTable();
+            codeLang = trimmed.slice(3).trim();
+            inCode = true;
+          } else {
+            html += "<pre><code" + (codeLang ? ' class="lang-' + escapeHtml(codeLang) + '"' : "") + ">" + escapeHtml(codeLines.join("\n")) + "</code></pre>";
+            codeLines = [];
+            codeLang = "";
+            inCode = false;
+          }
+          continue;
+        }
+        if (inCode) { codeLines.push(line); continue; }
+
+        // Tablas
+        if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+          flushList();
+          tableLines.push(trimmed);
+          continue;
+        }
+        flushTable();
+
+        // Encabezados
+        const h = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+        if (h) {
+          flushList();
+          const level = h[1].length;
+          html += "<h" + level + ">" + renderInline(h[2]) + "</h" + level + ">";
+          continue;
+        }
+
+        // Listas no ordenadas
+        const ul = /^[-*+]\s+(.*)$/.exec(trimmed);
+        if (ul) {
+          if (!inList) { html += "<ul>"; inList = true; listType = "ul"; }
+          html += "<li>" + renderInline(ul[1]) + "</li>";
+          continue;
+        }
+
+        // Listas ordenadas
+        const ol = /^\d+[.)]\s+(.*)$/.exec(trimmed);
+        if (ol) {
+          if (!inList) { html += "<ol>"; inList = true; listType = "ol"; }
+          html += "<li>" + renderInline(ol[1]) + "</li>";
+          continue;
+        }
+
+        // Líneas vacías y separadores
+        if (trimmed === "" || /^-{3,}$/.test(trimmed)) {
+          flushList();
+          if (trimmed !== "") html += "<hr>";
+          continue;
+        }
+
+        // Párrafos
+        flushList();
+        html += "<p>" + renderInline(trimmed) + "</p>";
+      }
+
+      if (inCode) html += "<pre><code>" + escapeHtml(codeLines.join("\n")) + "</code></pre>";
+      flushList();
+      flushTable();
+      return html;
+    }
+
+    // Formatea números con separadores de miles
+    function fmt(value, suffix, decimals) {
+      if (value === null || value === undefined) return "—";
+      const n = typeof value === "number" ? value : Number(value);
+      if (Number.isNaN(n)) return "—";
+      const opts = decimals !== undefined ? { maximumFractionDigits: decimals } : undefined;
+      return n.toLocaleString("es-ES", opts) + (suffix ? " " + suffix : "");
+    }
+  %>
+
+  <main class="container">
+    <h1>🤖 AI Model Comparison Analyzer</h1>
+    <p class="subtitle">Resultado del análisis comparativo</p>
+
+    <% if (error) { %>
+      <div class="error">
+        <strong>⚠️ Error durante el análisis:</strong> <%= error %>
+      </div>
+    <% } else { %>
+      <div class="card">
+        <h2>📊 Modelos analizados (<%= models.length %>)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Modelo</th>
+              <th>Creador</th>
+              <th>Intelligence</th>
+              <th>Precio input /1M</th>
+              <th>Precio output /1M</th>
+              <th>Contexto</th>
+              <th>Velocidad</th>
+              <th>Costo/tarea</th>
+              <th>Reasoning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% models.forEach((m) => { %>
+              <tr>
+                <td><strong><%= m.name %></strong></td>
+                <td><%= m.creator %></td>
+                <td><%= fmt(m.intelligenceIndex) %></td>
+                <td><%= fmt(m.pricePer1MInput, "$") %></td>
+                <td><%= fmt(m.pricePer1MOutput, "$") %></td>
+                <td><%= fmt(m.contextWindowTokens, "tok", 0) %></td>
+                <td><%= fmt(m.outputSpeed, "tok/s", 0) %></td>
+                <td><%= fmt(m.costPerTask, "$") %></td>
+                <td><%= m.isReasoning ? "Sí" : "No" %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>🧠 Análisis generado con IA</h2>
+        <div class="markdown">
+          <%- renderMarkdown(analysis) %>
+        </div>
+      </div>
+
+      <div>
+        <span class="badge">Provider: <%= provider %></span>
+        <span class="badge">Modelo: <%= modelUsed %></span>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="<%= comparisonUrl %>" target="_blank" rel="noopener">🔗 Ver comparación original en ArtificialAnalysis</a>
+        <a class="btn" href="/" style="background: var(--border);">↩ Volver</a>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>

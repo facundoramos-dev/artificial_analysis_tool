@@ -1,0 +1,23 @@
+{
+  "name": "artificial_analysis_tool",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-powered model comparison analyzer",
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "cli": "node src/cli.js",
+    "test": "node --test src/__tests__/**/*.test.js"
+  },
+  "engine": {
+    "node": ">=26.3.0"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.6.1",
+    "openai": "^4.73.0"
+  }
+}
