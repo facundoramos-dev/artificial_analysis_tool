@@ -1,15 +1,16 @@
 # Artificial Analysis Tool
 
-AI-powered comparison analyzer for LLM models. Fetches the list of AI models from the OpenCode API, validates each model against **ArtificialAnalysis.ai**, scrapes the generated comparison page and produces a detailed AI analysis (intelligence, pricing, benchmarks, speed and recommended use cases).
+AI-powered comparison analyzer for LLM models. Fetches the list of AI models from the OpenCode API, validates each model against **ArtificialAnalysis.ai**, lets the user pick two models and produces a detailed AI analysis (intelligence, pricing, benchmarks, speed and recommended use cases).
 
 ## Purpose
 
 This tool automates the full workflow of comparing AI models:
 
 1. **Fetch & validate** the model list from the OpenCode API and verify each model exists on ArtificialAnalysis.ai.
-2. **Generate** a comparison URL on ArtificialAnalysis.ai that includes all valid models.
-3. **Scrape** the comparison page to extract normalized metrics (ModelData) per model.
-4. **Analyze** the data with an AI provider (Google Gemini or OpenRouter) and return a detailed Markdown report in Spanish.
+2. **Select** two models from the list (each shown with its individual ArtificialAnalysis URL).
+3. **Generate** a comparison URL on ArtificialAnalysis.ai whose slug highlights the selected pair while including every valid model.
+4. **Scrape** the comparison page to extract normalized metrics (ModelData) per model.
+5. **Analyze** the data with an AI provider (Google Gemini or OpenRouter) and return a detailed Markdown report in Spanish.
 
 ## Prerequisites
 
@@ -58,7 +59,8 @@ artificial_analysis_tool/
 │   ├── models/                 # Model fetching, validation and comparison URL generation
 │   ├── scraper/                # Comparison page scraping and data normalization
 │   ├── analysis/               # AI prompt building and provider integration (Gemini/OpenRouter)
-│   └── web/                    # Web UI controllers and routes (EJS views)
+│   ├── web/                    # Web UI controllers and routes (EJS views)
+│   └── __tests__/              # Unit test suite (node:test)
 ├── .env.example                # Environment variable template
 ├── package.json
 └── AGENTS.md                   # Developer guide (architecture, commands, modules)
@@ -68,7 +70,7 @@ artificial_analysis_tool/
 
 ### CLI mode
 
-Runs the full pipeline (fetch -> validate -> scrape -> analyze) and prints the AI analysis to the console:
+Runs the full pipeline (fetch -> select -> scrape -> analyze). The valid models are shown in a table with their individual URLs, then you pick two for the comparison:
 
 ```bash
 npm run cli
@@ -86,13 +88,13 @@ npm start
 nvm use 26 && node src/server.js
 ```
 
-Then open <http://localhost:3000> to run the analysis from the UI.
+Then open <http://localhost:3000>. Click **Load Models** to see the model table, select exactly two models, and click **Analyze Selected Models**.
 
 ## API endpoints
 
 | Method | Endpoint       | Description                                                                                             |
 | ------ | -------------- | ------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/models`  | Returns the validated models and the generated comparison URL.                                          |
+| `GET`  | `/api/models`  | Returns the validated models (`validIds`, `allResults`, default `comparisonUrl`).                       |
 | `POST` | `/api/scrape`  | Scrapes a comparison URL. Body: `{ "url": "https://artificialanalysis.ai/models/comparisons/a-vs-b" }`. |
 | `POST` | `/api/analyze` | Analyzes model data with AI. Body: either `{ "models": [...] }` or `{ "url": "..." }` (scraped first).  |
 
@@ -102,12 +104,24 @@ If `API_ACCESS_KEY` is set, all `/api/*` endpoints require it via the `x-api-key
 
 ```
 🔍 Fetching models from OpenCode...
-✅ 21 valid models found.
+✅ 22 valid models found.
 
-🔗 Comparison URL: https://artificialanalysis.ai/models/comparisons/...
+┌─────┬─────────────────────────┬──────────────────────────────────────────────────┐
+│  #  │          Model          │                       URL                        │
+├─────┼─────────────────────────┼──────────────────────────────────────────────────┤
+│  1  │      'minimax-m3'       │   'https://artificialanalysis.ai/models/...'     │
+│  2  │     'minimax-m2.7'      │   'https://artificialanalysis.ai/models/...'     │
+│ ... │                         │                                                  │
+│ 22  │       'grok-4.5'        │   'https://artificialanalysis.ai/models/...'     │
+└─────┴─────────────────────────┴──────────────────────────────────────────────────┘
+
+Select the first model for comparison (1-22): 3
+Select the second model for comparison (1-22): 10
+
+🔗 Comparison URL: https://artificialanalysis.ai/models/comparisons/minimax-m2-5-vs-glm-5?...
 
 📊 Scraping comparison page...
-✅ Extracted data for 21 models.
+✅ Extracted data for 2 models.
 
 🤖 Analyzing with AI...
 <detailed Markdown analysis>
@@ -119,8 +133,8 @@ See [AGENTS.md](./AGENTS.md) for the architecture, module responsibilities, depe
 
 ## Tests
 
+The project includes 50 unit tests (Node.js built-in test runner, `node:test` + `node:assert`) covering model fetching/validation, comparison URL building, RSC page scraping, prompt building, provider selection and the analysis service:
+
 ```bash
 npm test
 ```
-
-> No automated tests are configured yet; the command is a placeholder.
